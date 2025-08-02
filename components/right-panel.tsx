@@ -151,7 +151,8 @@ export function RightPanel({ session }: RightPanelProps) {
           <div className="space-y-3">
             {session.tools.map((tool, index) => {
               const isExpanded = expandedTool === index
-              const isSuccess = Math.random() > 0.1
+              // Check if tool has success field, default to true if not specified
+              const isSuccess = (tool as any).success !== undefined ? (tool as any).success : true
 
               return (
                 <Card key={index} className="p-4">

@@ -6,100 +6,35 @@ import { SessionDetail } from "@/components/session-detail"
 import { RightPanel } from "@/components/right-panel"
 import { ChatPanel } from "@/components/chat-panel"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { N8nIntegration } from "@/components/n8n-integration"
+import { AirtableConfig } from "@/components/airtable-config"
+import { DataProvider, useData } from "@/components/data-context"
 import { Button } from "@/components/ui/button"
-import { Settings, Zap } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Settings, Zap, Network, Database, RefreshCw } from "lucide-react"
 
-// Mock data for demonstration
-const mockSessions = [
-  {
-    sessionId: "sess_001",
-    customerId: "Maria Rodriguez",
-    createdAt: new Date("2024-01-15T10:30:00Z"),
-    status: "open" as const,
-    escalationRecommended: false,
-    tags: ["billing", "urgent"],
-    sentiment: "frustrated" as const,
-    turns: [
-      {
-        speaker: "user" as const,
-        text: "I was charged twice for my subscription this month!",
-        timestamp: new Date("2024-01-15T10:30:00Z"),
-      },
-      {
-        speaker: "agent" as const,
-        text: "I understand your frustration. Let me look into your billing history right away.",
-        timestamp: new Date("2024-01-15T10:31:00Z"),
-      },
-      {
-        speaker: "user" as const,
-        text: "This is really inconvenient. I need this resolved quickly.",
-        timestamp: new Date("2024-01-15T10:32:00Z"),
-      },
-      {
-        speaker: "agent" as const,
-        text: "I can see the duplicate charge. I'll process a refund immediately and add a credit to your account.",
-        timestamp: new Date("2024-01-15T10:33:00Z"),
-      },
-    ],
-    tools: [
-      { name: "billing_lookup", payload: { customerId: "cust_12345" }, timestamp: new Date("2024-01-15T10:31:00Z") },
-      {
-        name: "process_refund",
-        payload: { amount: 29.99, reason: "duplicate_charge" },
-        timestamp: new Date("2024-01-15T10:33:00Z"),
-      },
-    ],
-  },
-  {
-    sessionId: "sess_002",
-    customerId: "John Smith",
-    createdAt: new Date("2024-01-15T09:15:00Z"),
-    status: "resolved" as const,
-    escalationRecommended: false,
-    tags: ["product_info", "sales"],
-    sentiment: "positive" as const,
-    turns: [
-      {
-        speaker: "user" as const,
-        text: "Hi! I'm interested in upgrading to the premium plan. What features does it include?",
-        timestamp: new Date("2024-01-15T09:15:00Z"),
-      },
-      {
-        speaker: "agent" as const,
-        text: "Great question! The premium plan includes advanced analytics, priority support, and unlimited integrations.",
-        timestamp: new Date("2024-01-15T09:16:00Z"),
-      },
-      {
-        speaker: "user" as const,
-        text: "That sounds perfect! How do I upgrade?",
-        timestamp: new Date("2024-01-15T09:17:00Z"),
-      },
-      {
-        speaker: "agent" as const,
-        text: "I can help you upgrade right now. I'll send you a secure link to complete the process.",
-        timestamp: new Date("2024-01-15T09:18:00Z"),
-      },
-    ],
-    tools: [
-      { name: "get_plan_details", payload: { plan: "premium" }, timestamp: new Date("2024-01-15T09:16:00Z") },
-      {
-        name: "generate_upgrade_link",
-        payload: { customerId: "cust_67890", targetPlan: "premium" },
-        timestamp: new Date("2024-01-15T09:18:00Z"),
-      },
-    ],
-  },
-]
+// Session interface for TypeScript
+interface Session {
+  sessionId: string
+  customerId: string
+  createdAt: Date
+  status: "open" | "resolved" | "escalated"
+  escalationRecommended: boolean
+  tags: string[]
+  sentiment: "positive" | "neutral" | "frustrated"
+  turns: Array<{ speaker: "user" | "agent"; text: string; timestamp: Date }>
+  tools: Array<{ name: string; payload: object; timestamp: Date }>
+}
 
-export default function Dashboard() {
-  const [selectedSession, setSelectedSession] = useState<(typeof mockSessions)[0] | null>(null)
-  const [sessions, setSessions] = useState(mockSessions)
+function DashboardContent() {
+  const { sessions, airtableConnected, loading, refreshData, isRefreshing } = useData()
+  const [selectedSession, setSelectedSession] = useState<Session | null>(null)
 
   const stats = {
-    totalSessions: 247,
-    activeAgents: 12,
-    avgResolutionTime: "4.2m",
-    satisfactionRate: 94,
+    totalSessions: sessions.length,
+    activeAgents: sessions.length > 0 ? new Set(sessions.map(s => s.customerId)).size : 0,
+    avgResolutionTime: sessions.length > 0 ? "4.2m" : "0m",
+    satisfactionRate: sessions.length > 0 ? Math.round((sessions.filter(s => s.sentiment === 'positive').length / sessions.length) * 100) : 0,
   }
 
   return (
@@ -113,7 +48,19 @@ export default function Dashboard() {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Claude Agent Hub</h1>
-              <p className="text-slate-600 dark:text-slate-400">AI-Powered Customer Service Dashboard</p>
+              <p className="text-slate-600 dark:text-slate-400">
+                AI-Powered Customer Service Dashboard
+                {airtableConnected && (
+                  <span className="ml-2 text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 px-2 py-1 rounded">
+                    Airtable Connected
+                  </span>
+                )}
+                {(loading || isRefreshing) && (
+                  <span className="ml-2 text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 px-2 py-1 rounded">
+                    {isRefreshing ? 'Refreshing...' : 'Syncing...'}
+                  </span>
+                )}
+              </p>
             </div>
           </div>
 
@@ -143,6 +90,50 @@ export default function Dashboard() {
           </div>
 
           <div className="flex items-center gap-3">
+            {airtableConnected && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={refreshData}
+                disabled={isRefreshing}
+                className="gap-2 bg-transparent"
+              >
+                <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+            )}
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2 bg-transparent">
+                  <Database className="w-4 h-4" />
+                  Connect Airtable
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-4xl max-h-[80vh]">
+                <DialogHeader>
+                  <DialogTitle>Airtable Data Source</DialogTitle>
+                </DialogHeader>
+                <div className="overflow-y-auto">
+                  <AirtableConfig />
+                </div>
+              </DialogContent>
+            </Dialog>
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2 bg-transparent">
+                  <Network className="w-4 h-4" />
+                  n8n Integration
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-4xl max-h-[80vh]">
+                <DialogHeader>
+                  <DialogTitle>n8n Integration Settings</DialogTitle>
+                </DialogHeader>
+                <div className="overflow-y-auto">
+                  <N8nIntegration />
+                </div>
+              </DialogContent>
+            </Dialog>
             <Button variant="outline" size="sm" className="gap-2 bg-transparent">
               <Settings className="w-4 h-4" />
               Settings
@@ -154,7 +145,50 @@ export default function Dashboard() {
 
       {/* Main Content */}
       <div className="flex h-[calc(100vh-89px)]">
-        {!selectedSession ? (
+        {!airtableConnected ? (
+          // Empty State - No Airtable Connected
+          <div className="flex-1 flex items-center justify-center bg-white dark:bg-slate-900">
+            <div className="text-center max-w-md mx-auto p-8">
+              <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-xl flex items-center justify-center mx-auto mb-6">
+                <Database className="w-8 h-8 text-slate-400" />
+              </div>
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-4">
+                Connect Your Airtable
+              </h2>
+              <p className="text-slate-600 dark:text-slate-400 mb-6">
+                To view your customer service sessions and analyze call data, please connect your Airtable database using the button above.
+              </p>
+              <div className="space-y-3 text-sm text-slate-500 dark:text-slate-400">
+                <p>✓ Real-time session data</p>
+                <p>✓ AI-powered analysis with Claude</p>
+                <p>✓ Secure, private connection</p>
+              </div>
+            </div>
+          </div>
+        ) : sessions.length === 0 && loading ? (
+          // Loading State
+          <div className="flex-1 flex items-center justify-center bg-white dark:bg-slate-900">
+            <div className="text-center">
+              <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
+              <p className="text-slate-600 dark:text-slate-400">Loading your session data...</p>
+            </div>
+          </div>
+        ) : sessions.length === 0 ? (
+          // No Data State
+          <div className="flex-1 flex items-center justify-center bg-white dark:bg-slate-900">
+            <div className="text-center max-w-md mx-auto p-8">
+              <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-xl flex items-center justify-center mx-auto mb-6">
+                <Database className="w-8 h-8 text-slate-400" />
+              </div>
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-4">
+                No Sessions Found
+              </h2>
+              <p className="text-slate-600 dark:text-slate-400 mb-6">
+                Your Airtable is connected, but no session data was found. Make sure your table contains customer service session records.
+              </p>
+            </div>
+          </div>
+        ) : !selectedSession ? (
           // Main Dashboard View - Session List + Chat
           <>
             {/* Session List - Takes up 2/3 */}
@@ -173,20 +207,33 @@ export default function Dashboard() {
             </div>
           </>
         ) : (
-          // Detailed View - Two Panel Layout (No Left Panel)
+          // Detailed View - Three Panel Layout 
           <>
-            {/* Session Detail - Takes up 2/3 */}
+            {/* Session Detail - Takes up main area */}
             <div className="flex-1 bg-white dark:bg-slate-900">
               <SessionDetail session={selectedSession} onBack={() => setSelectedSession(null)} />
             </div>
 
-            {/* Right Panel - Takes up 1/3 */}
-            <div className="w-96 border-l bg-white dark:bg-slate-900">
+            {/* Right Panel - Takes up smaller area */}
+            <div className="w-80 border-l bg-white dark:bg-slate-900">
               <RightPanel session={selectedSession} />
+            </div>
+
+            {/* Claude Chat - Always visible */}
+            <div className="w-96 border-l bg-white dark:bg-slate-900">
+              <ChatPanel sessions={sessions} isMainView={false} />
             </div>
           </>
         )}
       </div>
     </div>
+  )
+}
+
+export default function Dashboard() {
+  return (
+    <DataProvider>
+      <DashboardContent />
+    </DataProvider>
   )
 }

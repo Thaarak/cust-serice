@@ -30,60 +30,11 @@ interface WebhookEndpoint {
 }
 
 export function N8nIntegration() {
-  const [workflows, setWorkflows] = useState<N8nWorkflow[]>([
-    {
-      id: "wf_001",
-      name: "Customer Escalation Handler",
-      active: true,
-      lastRun: new Date("2024-01-15T10:30:00Z"),
-      status: "success",
-      executions: 47,
-    },
-    {
-      id: "wf_002",
-      name: "Sentiment Analysis Pipeline",
-      active: true,
-      lastRun: new Date("2024-01-15T10:25:00Z"),
-      status: "success",
-      executions: 156,
-    },
-    {
-      id: "wf_003",
-      name: "Auto-Response Generator",
-      active: false,
-      lastRun: new Date("2024-01-14T15:20:00Z"),
-      status: "idle",
-      executions: 23,
-    },
-  ])
+  const [workflows, setWorkflows] = useState<N8nWorkflow[]>([])
 
-  const [webhooks, setWebhooks] = useState<WebhookEndpoint[]>([
-    {
-      id: "wh_001",
-      name: "Session Created",
-      url: "https://n8n.example.com/webhook/session-created",
-      method: "POST",
-      active: true,
-      lastTriggered: new Date("2024-01-15T10:30:00Z"),
-    },
-    {
-      id: "wh_002",
-      name: "Escalation Required",
-      url: "https://n8n.example.com/webhook/escalation",
-      method: "POST",
-      active: true,
-      lastTriggered: new Date("2024-01-15T09:45:00Z"),
-    },
-    {
-      id: "wh_003",
-      name: "Customer Feedback",
-      url: "https://n8n.example.com/webhook/feedback",
-      method: "POST",
-      active: false,
-    },
-  ])
+  const [webhooks, setWebhooks] = useState<WebhookEndpoint[]>([])
 
-  const [n8nUrl, setN8nUrl] = useState("https://n8n.example.com")
+  const [n8nUrl, setN8nUrl] = useState("")
   const [apiKey, setApiKey] = useState("")
   const [connected, setConnected] = useState(false)
   const [loading, setLoading] = useState(false)
