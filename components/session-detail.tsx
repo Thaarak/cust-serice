@@ -1,7 +1,11 @@
 "use client"
+
+import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { User, Bot, Clock } from "lucide-react"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Bot, User, Clock, MessageSquare, ArrowLeft } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface Session {
@@ -18,69 +22,120 @@ interface Session {
 
 interface SessionDetailProps {
   session: Session
+  onBack: () => void
 }
 
-export function SessionDetail({ session }: SessionDetailProps) {
+export function SessionDetail({ session, onBack }: SessionDetailProps) {
+  const getSentimentColor = (sentiment: string) => {
+    switch (sentiment) {
+      case "positive":
+        return "text-emerald-700 bg-emerald-50 dark:text-emerald-300 dark:bg-emerald-900/20"
+      case "frustrated":
+        return "text-red-700 bg-red-50 dark:text-red-300 dark:bg-red-900/20"
+      default:
+        return "text-slate-700 bg-slate-50 dark:text-slate-300 dark:bg-slate-800/50"
+    }
+  }
+
   return (
-    <div className="flex-1 flex flex-col">
+    <div className="h-full flex flex-col">
       {/* Session Header */}
-      <div className="p-4 border-b bg-slate-50 dark:bg-slate-800/50">
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-            Session with {session.customerId}
-          </h2>
-          <div className="flex items-center gap-2 text-sm text-slate-500">
-            <Clock className="w-4 h-4" />
-            {session.createdAt.toLocaleString()}
+      <div className="p-6 border-b bg-slate-50 dark:bg-slate-800/50">
+        <div className="flex items-center gap-4 mb-4">
+          <Button variant="ghost" size="sm" onClick={onBack} className="gap-2">
+            <ArrowLeft className="w-4 h-4" />
+            Back to Sessions
+          </Button>
+        </div>
+
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-slate-900 dark:bg-slate-100 rounded-xl flex items-center justify-center">
+              <MessageSquare className="w-6 h-6 text-white dark:text-slate-900" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white">Session with {session.customerId}</h2>
+              <p className="text-slate-600 dark:text-slate-400">Started {session.createdAt.toLocaleString()}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge className={cn("font-medium", getSentimentColor(session.sentiment))}>{session.sentiment}</Badge>
+            <Badge
+              variant={
+                session.status === "resolved" ? "default" : session.status === "escalated" ? "destructive" : "secondary"
+              }
+            >
+              {session.status}
+            </Badge>
           </div>
         </div>
 
-        {/* Summary Tags */}
-        <div className="flex flex-wrap gap-2 mb-3">
-          <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">Follow up required</Badge>
-          <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Send coupon</Badge>
-          <Badge className="bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
-            Priority customer
-          </Badge>
+        {/* Session Meta */}
+        <div className="grid grid-cols-3 gap-4">
+          <div className="text-center p-3 bg-white dark:bg-slate-900 rounded-lg">
+            <div className="text-2xl font-bold text-slate-900 dark:text-white">{session.turns.length}</div>
+            <div className="text-xs text-slate-500 dark:text-slate-400">Messages</div>
+          </div>
+          <div className="text-center p-3 bg-white dark:bg-slate-900 rounded-lg">
+            <div className="text-2xl font-bold text-slate-900 dark:text-white">{session.tools.length}</div>
+            <div className="text-xs text-slate-500 dark:text-slate-400">Tools Used</div>
+          </div>
+          <div className="text-center p-3 bg-white dark:bg-slate-900 rounded-lg">
+            <div className="text-2xl font-bold text-slate-900 dark:text-white">
+              {Math.floor((Date.now() - session.createdAt.getTime()) / 60000)}m
+            </div>
+            <div className="text-xs text-slate-500 dark:text-slate-400">Duration</div>
+          </div>
         </div>
 
-        <p className="text-sm text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-900 p-3 rounded-lg border">
-          <strong>Claude Summary:</strong> Customer experienced a billing issue with duplicate charges. Issue was
-          resolved with immediate refund and account credit. Customer satisfaction restored. Recommend following up in
-          24 hours to ensure no further issues.
-        </p>
+        {/* Tags */}
+        <div className="flex flex-wrap gap-2 mt-4">
+          {session.tags.map((tag) => (
+            <Badge key={tag} variant="outline">
+              {tag}
+            </Badge>
+          ))}
+        </div>
       </div>
 
       {/* Chat Messages */}
-      <ScrollArea className="flex-1 p-4">
-        <div className="space-y-4">
+      <ScrollArea className="flex-1 p-6">
+        <div className="space-y-6">
           {session.turns.map((turn, index) => (
-            <div key={index} className={cn("flex gap-3", turn.speaker === "agent" ? "justify-start" : "justify-end")}>
-              {turn.speaker === "agent" && (
-                <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
-                  <Bot className="w-4 h-4 text-white" />
-                </div>
-              )}
-
-              <div
+            <div key={index} className={cn("flex gap-4", turn.speaker === "agent" ? "flex-row" : "flex-row-reverse")}>
+              <Avatar
                 className={cn(
-                  "max-w-[70%] p-3 rounded-lg",
-                  turn.speaker === "agent"
-                    ? "bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100"
-                    : "bg-blue-500 text-white ml-auto",
+                  "w-10 h-10",
+                  turn.speaker === "agent" ? "bg-slate-900 dark:bg-slate-100" : "bg-blue-600 dark:bg-blue-500",
                 )}
               >
-                <p className="text-sm">{turn.text}</p>
-                <p className="text-xs opacity-70 mt-1">
-                  {turn.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                </p>
-              </div>
+                <AvatarFallback className="text-white dark:text-slate-900">
+                  {turn.speaker === "agent" ? <Bot className="w-5 h-5" /> : <User className="w-5 h-5" />}
+                </AvatarFallback>
+              </Avatar>
 
-              {turn.speaker === "user" && (
-                <div className="w-8 h-8 bg-slate-300 dark:bg-slate-600 rounded-full flex items-center justify-center flex-shrink-0">
-                  <User className="w-4 h-4 text-slate-600 dark:text-slate-300" />
+              <div className={cn("flex-1 max-w-[80%]", turn.speaker === "agent" ? "text-left" : "text-right")}>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-sm font-semibold text-slate-900 dark:text-white capitalize">
+                    {turn.speaker === "agent" ? "Claude Agent" : session.customerId}
+                  </span>
+                  <div className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
+                    <Clock className="w-3 h-3" />
+                    {turn.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  </div>
                 </div>
-              )}
+
+                <Card
+                  className={cn(
+                    "p-4 border-0",
+                    turn.speaker === "agent"
+                      ? "bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white"
+                      : "bg-blue-50 dark:bg-blue-950/50 text-blue-900 dark:text-blue-100",
+                  )}
+                >
+                  <p className="text-sm leading-relaxed">{turn.text}</p>
+                </Card>
+              </div>
             </div>
           ))}
         </div>

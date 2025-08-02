@@ -1,190 +1,294 @@
 "use client"
 
 import { useState } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Card } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Textarea } from "@/components/ui/textarea"
-import { Copy, Check, ExternalLink, Zap } from "lucide-react"
+import { Switch } from "@/components/ui/switch"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Settings, Webhook, RefreshCw, CheckCircle, XCircle, Clock, ExternalLink, AlertTriangle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
-interface N8nIntegrationProps {
-  onClose: () => void
+interface N8nWorkflow {
+  id: string
+  name: string
+  active: boolean
+  lastRun?: Date
+  status: "success" | "error" | "running" | "idle"
+  executions: number
 }
 
-export function N8nIntegration({ onClose }: N8nIntegrationProps) {
-  const [webhookUrl, setWebhookUrl] = useState("")
+interface WebhookEndpoint {
+  id: string
+  name: string
+  url: string
+  method: "GET" | "POST" | "PUT" | "DELETE"
+  active: boolean
+  lastTriggered?: Date
+}
+
+export function N8nIntegration() {
+  const [workflows, setWorkflows] = useState<N8nWorkflow[]>([
+    {
+      id: "wf_001",
+      name: "Customer Escalation Handler",
+      active: true,
+      lastRun: new Date("2024-01-15T10:30:00Z"),
+      status: "success",
+      executions: 47,
+    },
+    {
+      id: "wf_002",
+      name: "Sentiment Analysis Pipeline",
+      active: true,
+      lastRun: new Date("2024-01-15T10:25:00Z"),
+      status: "success",
+      executions: 156,
+    },
+    {
+      id: "wf_003",
+      name: "Auto-Response Generator",
+      active: false,
+      lastRun: new Date("2024-01-14T15:20:00Z"),
+      status: "idle",
+      executions: 23,
+    },
+  ])
+
+  const [webhooks, setWebhooks] = useState<WebhookEndpoint[]>([
+    {
+      id: "wh_001",
+      name: "Session Created",
+      url: "https://n8n.example.com/webhook/session-created",
+      method: "POST",
+      active: true,
+      lastTriggered: new Date("2024-01-15T10:30:00Z"),
+    },
+    {
+      id: "wh_002",
+      name: "Escalation Required",
+      url: "https://n8n.example.com/webhook/escalation",
+      method: "POST",
+      active: true,
+      lastTriggered: new Date("2024-01-15T09:45:00Z"),
+    },
+    {
+      id: "wh_003",
+      name: "Customer Feedback",
+      url: "https://n8n.example.com/webhook/feedback",
+      method: "POST",
+      active: false,
+    },
+  ])
+
+  const [n8nUrl, setN8nUrl] = useState("https://n8n.example.com")
   const [apiKey, setApiKey] = useState("")
-  const [copied, setCopied] = useState<string | null>(null)
+  const [connected, setConnected] = useState(false)
+  const [loading, setLoading] = useState(false)
+
   const { toast } = useToast()
 
-  const copyToClipboard = (text: string, type: string) => {
-    navigator.clipboard.writeText(text)
-    setCopied(type)
-    setTimeout(() => setCopied(null), 2000)
+  const handleConnect = async () => {
+    setLoading(true)
+    try {
+      // Simulate API connection
+      await new Promise((resolve) => setTimeout(resolve, 2000))
+      setConnected(true)
+      toast({
+        title: "Connected to n8n",
+        description: "Successfully connected to your n8n instance.",
+      })
+    } catch (error) {
+      toast({
+        title: "Connection failed",
+        description: "Could not connect to n8n. Please check your settings.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const toggleWorkflow = async (workflowId: string) => {
+    setWorkflows((prev) =>
+      prev.map((wf) =>
+        wf.id === workflowId ? { ...wf, active: !wf.active, status: !wf.active ? "idle" : "success" } : wf,
+      ),
+    )
+
     toast({
-      title: "Copied to clipboard",
-      description: `${type} has been copied to your clipboard.`,
+      title: "Workflow updated",
+      description: "Workflow status has been changed.",
     })
   }
 
-  const webhookEndpoint = `${typeof window !== "undefined" ? window.location.origin : ""}/api/webhook/session`
-  const samplePayload = `{
-  "sessionId": "sess_{{$randomUUID}}",
-  "customerId": "{{$customer_id}}",
-  "createdAt": "{{$now}}",
-  "status": "open",
-  "escalationRecommended": false,
-  "tags": ["{{$tags}}"],
-  "sentiment": "{{$sentiment}}",
-  "turns": [
-    {
-      "speaker": "user",
-      "text": "{{$user_message}}",
-      "timestamp": "{{$now}}"
-    },
-    {
-      "speaker": "agent",
-      "text": "{{$claude_response}}",
-      "timestamp": "{{$now}}"
+  const toggleWebhook = async (webhookId: string) => {
+    setWebhooks((prev) => prev.map((wh) => (wh.id === webhookId ? { ...wh, active: !wh.active } : wh)))
+
+    toast({
+      title: "Webhook updated",
+      description: "Webhook status has been changed.",
+    })
+  }
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case "success":
+        return <CheckCircle className="w-4 h-4 text-emerald-500" />
+      case "error":
+        return <XCircle className="w-4 h-4 text-red-500" />
+      case "running":
+        return <RefreshCw className="w-4 h-4 text-blue-500 animate-spin" />
+      default:
+        return <Clock className="w-4 h-4 text-slate-400" />
     }
-  ],
-  "tools": [
-    {
-      "name": "{{$tool_name}}",
-      "payload": {{$tool_payload}},
-      "timestamp": "{{$now}}"
-    }
-  ]
-}`
+  }
 
   return (
-    <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Zap className="w-5 h-5 text-blue-500" />
-            n8n Integration Setup
-          </DialogTitle>
-        </DialogHeader>
-
-        <div className="space-y-6">
-          {/* Connection Settings */}
-          <Card className="p-4">
-            <h3 className="font-semibold mb-4">Connection Settings</h3>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="webhook-url">Your n8n Webhook URL</Label>
-                <Input
-                  id="webhook-url"
-                  placeholder="https://your-n8n-instance.com/webhook/..."
-                  value={webhookUrl}
-                  onChange={(e) => setWebhookUrl(e.target.value)}
-                />
-                <p className="text-xs text-slate-500 mt-1">
-                  This is where we'll send action triggers (coupons, escalations, etc.)
-                </p>
-              </div>
-              <div>
-                <Label htmlFor="api-key">API Key (Optional)</Label>
-                <Input
-                  id="api-key"
-                  type="password"
-                  placeholder="Your n8n API key for authentication"
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                />
-              </div>
-            </div>
-          </Card>
-
-          {/* Webhook Endpoint */}
-          <Card className="p-4">
-            <h3 className="font-semibold mb-4">Dashboard Webhook Endpoint</h3>
-            <p className="text-sm text-slate-600 dark:text-slate-400 mb-3">
-              Configure your n8n workflow to POST session data to this endpoint:
-            </p>
-            <div className="flex items-center gap-2 p-3 bg-slate-100 dark:bg-slate-800 rounded-lg">
-              <code className="flex-1 text-sm font-mono">{webhookEndpoint}</code>
-              <Button size="sm" variant="outline" onClick={() => copyToClipboard(webhookEndpoint, "Webhook URL")}>
-                {copied === "Webhook URL" ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-              </Button>
-            </div>
-          </Card>
-
-          {/* Sample Payload */}
-          <Card className="p-4">
-            <h3 className="font-semibold mb-4">Sample JSON Payload</h3>
-            <p className="text-sm text-slate-600 dark:text-slate-400 mb-3">
-              Use this structure when sending session data from your n8n workflow:
-            </p>
-            <div className="relative">
-              <Textarea value={samplePayload} readOnly className="font-mono text-xs h-64 resize-none" />
-              <Button
-                size="sm"
-                variant="outline"
-                className="absolute top-2 right-2 bg-transparent"
-                onClick={() => copyToClipboard(samplePayload, "Sample payload")}
-              >
-                {copied === "Sample payload" ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-              </Button>
-            </div>
-          </Card>
-
-          {/* Quick Setup Guide */}
-          <Card className="p-4">
-            <h3 className="font-semibold mb-4">Quick Setup Guide</h3>
-            <div className="space-y-3">
-              <div className="flex items-start gap-3">
-                <Badge className="mt-0.5">1</Badge>
-                <div>
-                  <p className="font-medium">Create HTTP Request Node</p>
-                  <p className="text-sm text-slate-600 dark:text-slate-400">
-                    Add an HTTP Request node in your n8n workflow and set the URL to our webhook endpoint above.
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3">
-                <Badge className="mt-0.5">2</Badge>
-                <div>
-                  <p className="font-medium">Configure Claude Integration</p>
-                  <p className="text-sm text-slate-600 dark:text-slate-400">
-                    Set up your Claude API calls and format the response according to our JSON structure.
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3">
-                <Badge className="mt-0.5">3</Badge>
-                <div>
-                  <p className="font-medium">Test the Connection</p>
-                  <p className="text-sm text-slate-600 dark:text-slate-400">
-                    Send a test payload to verify the integration is working correctly.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </Card>
-
-          {/* Action Buttons */}
-          <div className="flex justify-between">
-            <Button variant="outline" asChild>
-              <a href="https://docs.n8n.io" target="_blank" rel="noopener noreferrer">
-                <ExternalLink className="w-4 h-4 mr-2" />
-                n8n Documentation
-              </a>
-            </Button>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={onClose}>
-                Cancel
-              </Button>
-              <Button onClick={onClose}>Save Configuration</Button>
-            </div>
+    <div className="space-y-6">
+      {/* Connection Settings */}
+      <Card className="p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-8 h-8 bg-slate-900 dark:bg-slate-100 rounded-lg flex items-center justify-center">
+            <Settings className="w-4 h-4 text-white dark:text-slate-900" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-slate-900 dark:text-white">n8n Integration</h3>
+            <p className="text-sm text-slate-600 dark:text-slate-400">Connect your n8n workflows</p>
+          </div>
+          <div className="ml-auto">
+            <Badge variant={connected ? "default" : "secondary"}>{connected ? "Connected" : "Disconnected"}</Badge>
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="n8n-url">n8n Instance URL</Label>
+              <Input
+                id="n8n-url"
+                value={n8nUrl}
+                onChange={(e) => setN8nUrl(e.target.value)}
+                placeholder="https://your-n8n-instance.com"
+              />
+            </div>
+            <div>
+              <Label htmlFor="api-key">API Key</Label>
+              <Input
+                id="api-key"
+                type="password"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder="Your n8n API key"
+              />
+            </div>
+          </div>
+
+          <Button onClick={handleConnect} disabled={loading || !n8nUrl || !apiKey} className="w-full">
+            {loading ? (
+              <>
+                <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                Connecting...
+              </>
+            ) : (
+              <>
+                <ExternalLink className="w-4 h-4 mr-2" />
+                {connected ? "Reconnect" : "Connect to n8n"}
+              </>
+            )}
+          </Button>
+        </div>
+      </Card>
+
+      {/* Workflows */}
+      <Card className="p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h4 className="font-medium text-slate-900 dark:text-white">Active Workflows</h4>
+          <Badge variant="secondary">{workflows.filter((wf) => wf.active).length} active</Badge>
+        </div>
+
+        <ScrollArea className="max-h-64">
+          <div className="space-y-3">
+            {workflows.map((workflow) => (
+              <div
+                key={workflow.id}
+                className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-lg"
+              >
+                <div className="flex items-center gap-3">
+                  {getStatusIcon(workflow.status)}
+                  <div>
+                    <div className="font-medium text-sm text-slate-900 dark:text-white">{workflow.name}</div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400">
+                      {workflow.executions} executions
+                      {workflow.lastRun && ` • Last run ${workflow.lastRun.toLocaleTimeString()}`}
+                    </div>
+                  </div>
+                </div>
+                <Switch
+                  checked={workflow.active}
+                  onCheckedChange={() => toggleWorkflow(workflow.id)}
+                  disabled={!connected}
+                />
+              </div>
+            ))}
+          </div>
+        </ScrollArea>
+      </Card>
+
+      {/* Webhooks */}
+      <Card className="p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h4 className="font-medium text-slate-900 dark:text-white">Webhook Endpoints</h4>
+          <Badge variant="secondary">{webhooks.filter((wh) => wh.active).length} active</Badge>
+        </div>
+
+        <ScrollArea className="max-h-64">
+          <div className="space-y-3">
+            {webhooks.map((webhook) => (
+              <div
+                key={webhook.id}
+                className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-lg"
+              >
+                <div className="flex items-center gap-3">
+                  <Webhook className="w-4 h-4 text-slate-500" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="font-medium text-sm text-slate-900 dark:text-white">{webhook.name}</div>
+                      <Badge variant="outline" className="text-xs">
+                        {webhook.method}
+                      </Badge>
+                    </div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                      {webhook.url}
+                      {webhook.lastTriggered && ` • Last triggered ${webhook.lastTriggered.toLocaleTimeString()}`}
+                    </div>
+                  </div>
+                </div>
+                <Switch
+                  checked={webhook.active}
+                  onCheckedChange={() => toggleWebhook(webhook.id)}
+                  disabled={!connected}
+                />
+              </div>
+            ))}
+          </div>
+        </ScrollArea>
+      </Card>
+
+      {/* Status Warning */}
+      {!connected && (
+        <Card className="p-4 border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20">
+          <div className="flex items-center gap-2 text-amber-800 dark:text-amber-200">
+            <AlertTriangle className="w-4 h-4" />
+            <span className="text-sm font-medium">n8n integration is not connected</span>
+          </div>
+          <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
+            Connect to your n8n instance to enable workflow automation and webhook endpoints.
+          </p>
+        </Card>
+      )}
+    </div>
   )
 }

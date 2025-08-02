@@ -3,10 +3,8 @@
 import { useState } from "react"
 import { SessionList } from "@/components/session-list"
 import { SessionDetail } from "@/components/session-detail"
-import { ToolTimeline } from "@/components/tool-timeline"
-import { ActionBar } from "@/components/action-bar"
-import { ClaudeSuggestions } from "@/components/claude-suggestions"
-import { N8nIntegration } from "@/components/n8n-integration"
+import { RightPanel } from "@/components/right-panel"
+import { ChatPanel } from "@/components/chat-panel"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Button } from "@/components/ui/button"
 import { Settings, Zap } from "lucide-react"
@@ -15,7 +13,7 @@ import { Settings, Zap } from "lucide-react"
 const mockSessions = [
   {
     sessionId: "sess_001",
-    customerId: "cust_12345",
+    customerId: "Maria Rodriguez",
     createdAt: new Date("2024-01-15T10:30:00Z"),
     status: "open" as const,
     escalationRecommended: false,
@@ -54,7 +52,7 @@ const mockSessions = [
   },
   {
     sessionId: "sess_002",
-    customerId: "cust_67890",
+    customerId: "John Smith",
     createdAt: new Date("2024-01-15T09:15:00Z"),
     status: "resolved" as const,
     escalationRecommended: false,
@@ -94,28 +92,60 @@ const mockSessions = [
 ]
 
 export default function Dashboard() {
-  const [selectedSession, setSelectedSession] = useState(mockSessions[0])
+  const [selectedSession, setSelectedSession] = useState<(typeof mockSessions)[0] | null>(null)
   const [sessions, setSessions] = useState(mockSessions)
-  const [showN8nSetup, setShowN8nSetup] = useState(false)
+
+  const stats = {
+    totalSessions: 247,
+    activeAgents: 12,
+    avgResolutionTime: "4.2m",
+    satisfactionRate: 94,
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
-      {/* Header */}
-      <header className="border-b bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm sticky top-0 z-50">
-        <div className="flex items-center justify-between p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-              <Zap className="w-5 h-5 text-white" />
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
+      {/* Clean Professional Header */}
+      <header className="border-b bg-white dark:bg-slate-900 shadow-sm">
+        <div className="flex items-center justify-between p-6">
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 bg-slate-900 dark:bg-slate-100 rounded-lg flex items-center justify-center">
+              <Zap className="w-6 h-6 text-white dark:text-slate-900" />
             </div>
             <div>
-              <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Claude Agent Dashboard</h1>
-              <p className="text-sm text-slate-500 dark:text-slate-400">Monitor your n8n customer service automation</p>
+              <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Claude Agent Hub</h1>
+              <p className="text-slate-600 dark:text-slate-400">AI-Powered Customer Service Dashboard</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => setShowN8nSetup(true)} className="gap-2">
+
+          {/* Stats Bar */}
+          <div className="hidden lg:flex items-center gap-6">
+            <div className="flex items-center gap-4">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-slate-900 dark:text-white">{stats.totalSessions}</div>
+                <div className="text-xs text-slate-500 dark:text-slate-400">Sessions</div>
+              </div>
+              <div className="w-px h-8 bg-slate-200 dark:bg-slate-700"></div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-emerald-600">{stats.activeAgents}</div>
+                <div className="text-xs text-slate-500 dark:text-slate-400">Active</div>
+              </div>
+              <div className="w-px h-8 bg-slate-200 dark:bg-slate-700"></div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-blue-600">{stats.avgResolutionTime}</div>
+                <div className="text-xs text-slate-500 dark:text-slate-400">Avg Time</div>
+              </div>
+              <div className="w-px h-8 bg-slate-200 dark:bg-slate-700"></div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-purple-600">{stats.satisfactionRate}%</div>
+                <div className="text-xs text-slate-500 dark:text-slate-400">Satisfaction</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <Button variant="outline" size="sm" className="gap-2 bg-transparent">
               <Settings className="w-4 h-4" />
-              n8n Setup
+              Settings
             </Button>
             <ThemeToggle />
           </div>
@@ -123,27 +153,40 @@ export default function Dashboard() {
       </header>
 
       {/* Main Content */}
-      <div className="flex h-[calc(100vh-80px)]">
-        {/* Left Panel - Session List */}
-        <div className="w-80 border-r bg-white dark:bg-slate-900 flex flex-col">
-          <SessionList sessions={sessions} selectedSession={selectedSession} onSelectSession={setSelectedSession} />
-        </div>
+      <div className="flex h-[calc(100vh-89px)]">
+        {!selectedSession ? (
+          // Main Dashboard View - Session List + Chat
+          <>
+            {/* Session List - Takes up 2/3 */}
+            <div className="flex-1 border-r bg-white dark:bg-slate-900">
+              <SessionList
+                sessions={sessions}
+                selectedSession={null}
+                onSelectSession={setSelectedSession}
+                isFullScreen={true}
+              />
+            </div>
 
-        {/* Middle Panel - Session Detail */}
-        <div className="flex-1 flex flex-col bg-white dark:bg-slate-900">
-          <SessionDetail session={selectedSession} />
-          <ClaudeSuggestions session={selectedSession} />
-          <ActionBar session={selectedSession} />
-        </div>
+            {/* Claude Chat - Takes up 1/3 */}
+            <div className="w-96 bg-white dark:bg-slate-900">
+              <ChatPanel sessions={sessions} isMainView={true} />
+            </div>
+          </>
+        ) : (
+          // Detailed View - Two Panel Layout (No Left Panel)
+          <>
+            {/* Session Detail - Takes up 2/3 */}
+            <div className="flex-1 bg-white dark:bg-slate-900">
+              <SessionDetail session={selectedSession} onBack={() => setSelectedSession(null)} />
+            </div>
 
-        {/* Right Panel - Tool Timeline */}
-        <div className="w-80 border-l bg-slate-50 dark:bg-slate-800/50">
-          <ToolTimeline session={selectedSession} />
-        </div>
+            {/* Right Panel - Takes up 1/3 */}
+            <div className="w-96 border-l bg-white dark:bg-slate-900">
+              <RightPanel session={selectedSession} />
+            </div>
+          </>
+        )}
       </div>
-
-      {/* n8n Integration Modal */}
-      {showN8nSetup && <N8nIntegration onClose={() => setShowN8nSetup(false)} />}
     </div>
   )
 }
