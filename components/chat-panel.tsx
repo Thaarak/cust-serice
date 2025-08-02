@@ -74,19 +74,48 @@ export function ChatPanel({ sessions, isMainView = false }: ChatPanelProps) {
     setInput("")
     setIsLoading(true)
 
-    // Simulate Claude API call
-    setTimeout(() => {
+    try {
+      // Call Claude API
+      const response = await fetch('/api/claude', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: input,
+          sessions: sessions,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to get response from Claude')
+      }
+
+      const data = await response.json()
+      
+      const assistantMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        type: "assistant",
+        content: data.content,
+        timestamp: new Date(),
+        suggestions: data.suggestions,
+      }
+      setMessages((prev) => [...prev, assistantMessage])
+    } catch (error) {
+      console.error('Error calling Claude API:', error)
+      // Fallback to simulated response if API fails
       const response = generateClaudeResponse(input, sessions)
       const assistantMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         type: "assistant",
-        content: response.content,
+        content: `⚠️ Unable to connect to Claude API. Using fallback analysis:\n\n${response.content}`,
         timestamp: new Date(),
         suggestions: response.suggestions,
       }
       setMessages((prev) => [...prev, assistantMessage])
+    } finally {
       setIsLoading(false)
-    }, 1500)
+    }
   }
 
   const handleSuggestionClick = (suggestion: string) => {
@@ -285,7 +314,7 @@ What specific aspect would you like me to analyze?`,
       </div>
 
       {/* Messages */}
-      <ScrollArea className="flex-1 p-6" ref={scrollAreaRef}>
+      <ScrollArea className="flex-1 p-6 max-h-[calc(100vh-300px)] overflow-y-auto" ref={scrollAreaRef}>
         <div className="space-y-6">
           {messages.map((message) => (
             <div
@@ -381,7 +410,7 @@ What specific aspect would you like me to analyze?`,
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Ask Claude about your sessions..."
-            onKeyPress={(e) => e.key === "Enter" && handleSend()}
+            onKeyDown={(e) => e.key === "Enter" && handleSend()}
             className="flex-1"
             disabled={isLoading}
           />
