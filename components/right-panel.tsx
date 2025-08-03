@@ -183,7 +183,10 @@ export function RightPanel({ session }: RightPanelProps) {
                         </Badge>
                         <div className="flex items-center gap-1 text-xs text-slate-500">
                           <Clock className="w-3 h-3" />
-                          {tool.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          {tool.timestamp instanceof Date 
+                            ? tool.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                            : new Date(tool.timestamp || Date.now()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                          }
                         </div>
                       </div>
 

@@ -146,7 +146,10 @@ export function SessionList({ sessions, selectedSession, onSelectSession, isFull
                   <div>
                     <div className="font-medium text-slate-900 dark:text-white">{session.customerId}</div>
                     <div className="text-sm text-slate-500 dark:text-slate-400">
-                      {session.createdAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      {session.createdAt instanceof Date 
+                        ? session.createdAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                        : new Date(session.createdAt || Date.now()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                      }
                     </div>
                   </div>
                 </div>

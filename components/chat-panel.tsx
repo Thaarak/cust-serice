@@ -338,7 +338,10 @@ What specific aspect would you like me to analyze?`,
                     {message.type === "user" ? "You" : "Claude"}
                   </span>
                   <span className="text-xs text-slate-500 dark:text-slate-400">
-                    {message.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    {message.timestamp instanceof Date 
+                      ? message.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                      : new Date(message.timestamp || Date.now()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                    }
                   </span>
                 </div>
 

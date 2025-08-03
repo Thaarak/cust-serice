@@ -55,7 +55,12 @@ export function SessionDetail({ session, onBack }: SessionDetailProps) {
             </div>
             <div>
               <h2 className="text-xl font-bold text-slate-900 dark:text-white">Session with {session.customerId}</h2>
-              <p className="text-slate-600 dark:text-slate-400">Started {session.createdAt.toLocaleString()}</p>
+              <p className="text-slate-600 dark:text-slate-400">
+                Started {session.createdAt instanceof Date 
+                  ? session.createdAt.toLocaleString() 
+                  : new Date(session.createdAt || Date.now()).toLocaleString()
+                }
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -121,7 +126,10 @@ export function SessionDetail({ session, onBack }: SessionDetailProps) {
                   </span>
                   <div className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
                     <Clock className="w-3 h-3" />
-                    {turn.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    {turn.timestamp instanceof Date 
+                      ? turn.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                      : new Date(turn.timestamp || Date.now()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                    }
                   </div>
                 </div>
 

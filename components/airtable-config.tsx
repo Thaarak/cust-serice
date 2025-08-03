@@ -13,9 +13,7 @@ import { Database, RefreshCw, CheckCircle, XCircle, ExternalLink, AlertTriangle,
 import { useToast } from "@/hooks/use-toast"
 
 interface AirtableConfig {
-  baseId: string
-  apiKey: string
-  tableName: string
+  viewableLink: string
   connected: boolean
 }
 
@@ -27,14 +25,11 @@ interface TableInfo {
 
 export function AirtableConfig() {
   const [config, setConfig] = useState<AirtableConfig>({
-    baseId: "",
-    apiKey: "",
-    tableName: "",
+    viewableLink: "",
     connected: false,
   })
   const [loading, setLoading] = useState(false)
   const [testing, setTesting] = useState(false)
-  const [showApiKey, setShowApiKey] = useState(false)
   const [tableInfo, setTableInfo] = useState<TableInfo | null>(null)
   const [lastSync, setLastSync] = useState<Date | null>(null)
 
@@ -62,10 +57,10 @@ export function AirtableConfig() {
   }
 
   const testConnection = async () => {
-    if (!config.baseId || !config.apiKey || !config.tableName) {
+    if (!config.viewableLink) {
       toast({
         title: "Missing information",
-        description: "Please fill in all required fields.",
+        description: "Please enter a valid Airtable shared view link.",
         variant: "destructive",
       })
       return
@@ -91,7 +86,7 @@ export function AirtableConfig() {
         
         toast({
           title: "Connection successful!",
-          description: `Connected to table "${config.tableName}" with ${result.tableInfo.recordCount} records.`,
+          description: `Connected to view with ${result.tableInfo.recordCount} records.`,
         })
         
         // Trigger data refresh across the app
@@ -101,9 +96,25 @@ export function AirtableConfig() {
       }
     } catch (error) {
       console.error('Connection test failed:', error)
+      
+      let errorMessage = 'Please check your link and try again.'
+      if (error instanceof Error) {
+        if (error.message.includes('debug')) {
+          // If we have debug info, show more details
+          try {
+            const errorData = JSON.parse(error.message)
+            errorMessage = errorData.error || errorMessage
+          } catch {
+            errorMessage = error.message
+          }
+        } else {
+          errorMessage = error.message
+        }
+      }
+      
       toast({
         title: "Connection failed",
-        description: error instanceof Error ? error.message : 'Please check your credentials and try again.',
+        description: errorMessage,
         variant: "destructive",
       })
     } finally {
@@ -200,68 +211,25 @@ export function AirtableConfig() {
         </div>
 
         <div className="space-y-4">
-          <div className="grid grid-cols-1 gap-4">
-            <div>
-              <Label htmlFor="base-id">Airtable Base ID</Label>
-              <Input
-                id="base-id"
-                value={config.baseId}
-                onChange={(e) => setConfig({ ...config, baseId: e.target.value })}
-                placeholder="appXXXXXXXXXXXXXX"
-                disabled={config.connected}
-              />
-              <p className="text-xs text-slate-500 mt-1">
-                Find this in your Airtable base URL or API documentation
-              </p>
-            </div>
-            
-            <div>
-              <Label htmlFor="api-key">Airtable API Key</Label>
-              <div className="relative">
-                <Input
-                  id="api-key"
-                  type={showApiKey ? "text" : "password"}
-                  value={config.apiKey}
-                  onChange={(e) => setConfig({ ...config, apiKey: e.target.value })}
-                  placeholder="patXXXXXXXXXXXXXX"
-                  disabled={config.connected}
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-0 top-0 h-full px-3"
-                  onClick={() => setShowApiKey(!showApiKey)}
-                  disabled={config.connected}
-                >
-                  {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </Button>
-              </div>
-              <p className="text-xs text-slate-500 mt-1">
-                Get this from your Airtable account settings
-              </p>
-            </div>
-
-            <div>
-              <Label htmlFor="table-name">Table Name</Label>
-              <Input
-                id="table-name"
-                value={config.tableName}
-                onChange={(e) => setConfig({ ...config, tableName: e.target.value })}
-                placeholder="Customer Sessions"
-                disabled={config.connected}
-              />
-              <p className="text-xs text-slate-500 mt-1">
-                The name of the table containing your call data
-              </p>
-            </div>
+          <div>
+            <Label htmlFor="viewable-link">Airtable Shared View Link</Label>
+            <Input
+              id="viewable-link"
+              value={config.viewableLink}
+              onChange={(e) => setConfig({ ...config, viewableLink: e.target.value })}
+              placeholder="https://airtable.com/appXXXXXX/shrXXXXXX"
+              disabled={config.connected}
+            />
+            <p className="text-xs text-slate-500 mt-1">
+              Share your Airtable view and paste the link here. Make sure "Allow viewers to copy data" is enabled.
+            </p>
           </div>
 
           <div className="flex gap-2">
             {!config.connected ? (
               <Button 
                 onClick={testConnection} 
-                disabled={testing || !config.baseId || !config.apiKey || !config.tableName}
+                disabled={testing || !config.viewableLink}
                 className="flex-1"
               >
                 {testing ? (
@@ -341,12 +309,16 @@ export function AirtableConfig() {
         <div className="flex items-start gap-3">
           <ExternalLink className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5" />
           <div>
-            <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-2">How to connect your Airtable</h4>
+            <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-2">How to share your Airtable view</h4>
             <div className="space-y-2 text-sm text-blue-800 dark:text-blue-200">
-              <p>1. Go to your Airtable base and copy the Base ID from the URL or API docs</p>
-              <p>2. Generate a Personal Access Token from your Airtable account settings</p>
-              <p>3. Enter the exact table name containing your call session data</p>
-              <p>4. Click "Test & Connect" to verify the connection</p>
+              <p>1. Open your Airtable base with customer session data</p>
+              <p>2. Create or select a view with the data you want to display</p>
+              <p>3. Click the "Share" button and choose "Create a shared view link"</p>
+              <p>4. ⚠️ CRITICAL: In the sharing dialog, find "Allow viewers to copy data" and enable it</p>
+              <p>5. This option allows CSV export - look for a checkbox or toggle</p>
+              <p>6. Without this enabled, only demo data will be shown</p>
+              <p>7. Copy the shared link and paste it above</p>
+              <p>8. Click "Test & Connect"</p>
             </div>
           </div>
         </div>
@@ -360,7 +332,7 @@ export function AirtableConfig() {
             <span className="text-sm font-medium">Using demo data</span>
           </div>
           <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
-            Connect your Airtable to see real call data instead of demo sessions.
+            Share an Airtable view link to see real call data instead of demo sessions.
           </p>
         </Card>
       )}

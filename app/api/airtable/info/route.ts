@@ -1,47 +1,65 @@
 import { NextRequest, NextResponse } from 'next/server';
-import Airtable from 'airtable';
 
 export async function POST(request: NextRequest) {
   try {
-    const { baseId, apiKey, tableName } = await request.json();
+    const { viewableLink } = await request.json();
 
-    if (!baseId || !apiKey || !tableName) {
+    if (!viewableLink) {
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        { error: 'Missing required field: viewableLink' },
         { status: 400 }
       );
     }
 
-    const base = new Airtable({ apiKey }).base(baseId);
+    // Call the sessions endpoint to get the actual data and parse table info from it
+    try {
+      const sessionsResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/airtable/sessions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ viewableLink }),
+      });
 
-    // Get a sample of records to understand the structure
-    const records = await base(tableName)
-      .select({
-        maxRecords: 10,
-      })
-      .firstPage();
+      if (!sessionsResponse.ok) {
+        const errorData = await sessionsResponse.json();
+        return NextResponse.json(
+          { error: errorData.error || 'Failed to fetch table information' },
+          { status: sessionsResponse.status }
+        );
+      }
 
-    // Extract field information
-    const fields = records.length > 0 ? Object.keys(records[0].fields) : [];
+      const sessionsData = await sessionsResponse.json();
+      
+      // Derive table info from the sessions data
+      let fields = ['Session ID', 'Customer ID', 'Status', 'Sentiment', 'Created'];
+      
+      // If we have actual session data, get the field names from the first session
+      if (sessionsData.sessions && sessionsData.sessions.length > 0) {
+        const firstSession = sessionsData.sessions[0];
+        fields = Object.keys(firstSession).filter(key => 
+          !['turns', 'tools'].includes(key) // Exclude complex nested fields
+        );
+      }
 
-    // Get total count (limited for performance)
-    const allRecords = await base(tableName)
-      .select({
-        maxRecords: 200,
-        fields: ['id']
-      })
-      .firstPage();
+      const tableInfo = {
+        name: 'Customer Service Sessions',
+        recordCount: sessionsData.count || 0,
+        fields: fields,
+      };
 
-    const tableInfo = {
-      name: tableName,
-      recordCount: allRecords.length,
-      fields: fields,
-    };
-
-    return NextResponse.json({
-      success: true,
-      tableInfo,
-    });
+      return NextResponse.json({
+        success: true,
+        tableInfo,
+      });
+      
+    } catch (fetchError) {
+      console.error('Failed to fetch table info:', fetchError);
+      return NextResponse.json(
+        { error: 'Failed to fetch table information' },
+        { status: 500 }
+      );
+    }
 
   } catch (error: any) {
     console.error('Failed to fetch table info:', error);

@@ -50,12 +50,41 @@ export function DataProvider({ children }: DataProviderProps) {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(config),
+        body: JSON.stringify({
+          viewableLink: config.viewableLink
+        }),
       })
 
       if (response.ok) {
         const data = await response.json()
-        setSessions(data.sessions || [])
+        
+        // Ensure all dates are proper Date objects on the client side
+        const validatedSessions = (data.sessions || []).map((session: any) => {
+          // Helper function to safely parse dates
+          const parseDate = (dateValue: any): Date => {
+            if (!dateValue) return new Date()
+            if (dateValue instanceof Date) return dateValue
+            
+            // Try to parse string dates
+            const parsed = new Date(dateValue)
+            return isNaN(parsed.getTime()) ? new Date() : parsed
+          }
+
+          return {
+            ...session,
+            createdAt: parseDate(session.createdAt),
+            turns: (session.turns || []).map((turn: any) => ({
+              ...turn,
+              timestamp: parseDate(turn.timestamp),
+            })),
+            tools: (session.tools || []).map((tool: any) => ({
+              ...tool,
+              timestamp: parseDate(tool.timestamp),
+            })),
+          }
+        })
+        
+        setSessions(validatedSessions)
         return true
       } else {
         console.error('Failed to fetch Airtable data')
